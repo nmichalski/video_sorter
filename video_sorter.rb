@@ -103,11 +103,13 @@ top_level_files_and_folders.each do |file_or_folder|
 
     # copy origin video file to destination folder
     # TODO?: (or move if extracted)
-    puts "copying: #{file_to_process} --> #{final_destination}"
+    timestamp = Time.now.strftime("%F %T")
+    puts "[#{timestamp}] copying: #{file_to_process} --> #{final_destination}"
     FileUtils.cp(file_to_process, final_destination)
 
     # label original file/folder as Red
-    puts "labeling Red: #{file_or_folder}"
+    timestamp2 = Time.now.strftime("%F %T")
+    puts "[#{timestamp2}] labeling Red: #{file_or_folder}"
     `./change_file_label.sh 2 "#{file_or_folder}"`
   end
 end
