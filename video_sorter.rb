@@ -1,12 +1,7 @@
 require 'set'
 require 'fileutils'
 
-# Parameters:
-
-ORIGIN="/Users/nick/Downloads/Unsorted_Downloads/*"
-TV_DESTINATION="/Volumes/Nicks/Media/TV\ Shows/"
-MOVIE_DESTINATION="/Volumes/Nicks/Media/New\ Movies/"
-VIDEO_FILE_EXTENSIONS=[".mkv", ".mp4", ".avi"]
+# mdls uses a different mapping for reading the color
 COLOR_NAME_BY_ID={
   "0" => "Blank",
   "1" => "Gray",
@@ -17,17 +12,34 @@ COLOR_NAME_BY_ID={
   "6" => "Red",
   "7" => "Orange",
 }
+# The osascript uses a different mapping for setting the color
 COLOR_ID_BY_NAME={
   "Blank"  => "0",
-  "Gray"   => "1",
-  "Green"  => "2",
-  "Purple" => "3",
+  "Orange" => "1",
+  "Red"    => "2",
+  "Yellow" => "3",
   "Blue"   => "4",
-  "Yellow" => "5",
-  "Red"    => "6",
-  "Orange" => "7",
+  "Purple" => "5",
+  "Green"  => "6",
+  "Gray"   => "7",
 }
 
+
+# --- Parameters ---
+
+ORIGIN="/Users/nick/Downloads/Unsorted_Downloads/*"
+TV_DESTINATION="/Volumes/Nicks/Media/TV\ Shows/"
+MOVIE_DESTINATION="/Volumes/Nicks/Media/New\ Movies/"
+VIDEO_FILE_EXTENSIONS=[".mkv", ".mp4", ".avi"]
+
+
+# --- Methods ---
+
+def was_processed?(path)
+  color_id   = `mdls -name kMDItemFSLabel -raw "#{path}"`
+  color_name = COLOR_NAME_BY_ID[color_id]
+  color_name != "Blank"
+end
 
 def is_video_file?(file_path)
   VIDEO_FILE_EXTENSIONS.any? do |video_file_extension|
@@ -35,29 +47,58 @@ def is_video_file?(file_path)
   end
 end
 
+def find_or_create_show_folder(show_title)
+  list_of_show_folders = Dir["#{TV_DESTINATION}*"]
 
-# get directory listing
+  existing_show_folder = list_of_show_folders.find { |show_folder| show_folder =~ /#{show_title}/i }
+  if existing_show_folder.nil?
+    existing_show_folder = "#{TV_DESTINATION}#{show_title}"
+    FileUtils.mkdir(existing_show_folder)
+  end
+  existing_show_folder
+end
+
+def find_or_create_season_folder(show_folder, season)
+  list_of_season_folders  = Dir["#{show_folder}/*"]
+
+  existing_season_folder = list_of_season_folders.find { |season_folder| season_folder =~ /\/season\s#{season}/i }
+  if existing_season_folder.nil?
+    existing_season_folder = "#{show_folder}/Season #{season}"
+    FileUtils.mkdir(existing_season_folder)
+  end
+  existing_season_folder
+end
+
+def copy_file_from_origin_to_destination(origin, destination)
+  timestamp = Time.now.strftime("%F %T")
+  puts "[#{timestamp}] copying: #{origin} --> #{destination}"
+  FileUtils.cp(origin, destination)
+end
+
+def label_as_processed(path)
+  timestamp = Time.now.strftime("%F %T")
+  puts "[#{timestamp}] labeling Red: #{path}"
+  `./change_file_label.sh #{COLOR_ID_BY_NAME["Red"]} "#{path}"`
+end
+
+
+# --- Script ---
+
 top_level_files_and_folders = Dir[ORIGIN]
 
-# iterate through them
 top_level_files_and_folders.each do |file_or_folder|
-  color_id   = `mdls -name kMDItemFSLabel -raw "#{file_or_folder}"`
-  color_name = COLOR_NAME_BY_ID[color_id]
-  next unless color_name == "Blank"
+  next if was_processed?(file_or_folder)
 
-  # TODO?: unrar if .rar (and make note of this for copy/move decision later)
+  # TODO: unrar if .rar (and make note of this for copy/move decision later)
 
   files_to_process = Set[]
   if File.file?(file_or_folder)
     file = file_or_folder
 
-    if is_video_file?(file)
-      files_to_process << file
-    end
+    files_to_process << file if is_video_file?(file)
   else # is a folder
     folder = file_or_folder
 
-    # find .mkv or .mp4 or .avi files
     VIDEO_FILE_EXTENSIONS.each do |video_file_extension|
       video_files = Dir["#{folder}/**/*#{video_file_extension}"]
       video_files.each do |video_file|
@@ -66,50 +107,26 @@ top_level_files_and_folders.each do |file_or_folder|
     end
   end
 
-  # TODO?: capture top-folder name as string to use for renaming later
-
   files_to_process.each do |file_to_process|
     filename = file_to_process.split("/").last
     filename =~ /.*[S](\d\d)[E]\d\d\..*/i
-    season = $1
+    season   = $1
 
-    if !season.nil?  # TV show (i.e. has S##E##)
-      # calculate title from part before S##E##
-      filename =~ /(.*)\.[S]\d\d[E]\d\d\..*/i
+    if !season.nil? # TV show
+      filename   =~ /(.*)\.[S]\d\d[E]\d\d\..*/i
       show_title = $1
 
-      existing_shows = Dir["#{TV_DESTINATION}*"]
+      show_folder = find_or_create_show_folder(show_title)
 
-      # find existing show folder
-      existing_show = existing_shows.find { |exist_show| exist_show =~ /#{show_title}/i }
-      if existing_show.nil?
-        existing_show = "#{TV_DESTINATION}#{show_title}"
-        FileUtils.mkdir(existing_show)
-      end
-
-      existing_seasons = Dir["#{existing_show}/*"]
-
-      # find existing season folder (i.e. final_destination)
-      existing_season = existing_seasons.find { |exist_season| exist_season =~ /#{show_title}\/season\s#{season}/i }
-      if existing_season.nil?
-        existing_season = "#{existing_show}/Season #{season}"
-        FileUtils.mkdir(existing_season)
-      end
-
-      final_destination = "#{existing_season}/"
+      season_folder = find_or_create_season_folder(show_folder, season)
+      final_destination = "#{season_folder}/"
     else # Movie
       final_destination = MOVIE_DESTINATION
     end
 
-    # copy origin video file to destination folder
-    # TODO?: (or move if extracted)
-    timestamp = Time.now.strftime("%F %T")
-    puts "[#{timestamp}] copying: #{file_to_process} --> #{final_destination}"
-    FileUtils.cp(file_to_process, final_destination)
+    # TODO: (or move if extracted)
+    copy_file_from_origin_to_destination(file_to_process, final_destination)
 
-    # label original file/folder as Red
-    timestamp2 = Time.now.strftime("%F %T")
-    puts "[#{timestamp2}] labeling Red: #{file_or_folder}"
-    `./change_file_label.sh 2 "#{file_or_folder}"`
+    label_as_processed(file_or_folder)
   end
 end
