@@ -78,7 +78,9 @@ end
 def label_as_processed(path)
   timestamp = Time.now.strftime("%F %T")
   puts "[#{timestamp}] labeling Red: #{path}"
-  `./change_file_label.sh #{COLOR_ID_BY_NAME["Red"]} "#{path}"`
+
+  folder_of_this_script = File.expand_path(File.dirname(__FILE__))
+  `"#{folder_of_this_script}/change_file_label.sh" #{COLOR_ID_BY_NAME["Red"]} "#{path}"`
 end
 
 
