@@ -86,49 +86,65 @@ end
 
 # --- Script ---
 
-top_level_files_and_folders = Dir[ORIGIN]
+begin
+  folder_of_this_script = File.expand_path(File.dirname(__FILE__))
+  pidfile = "#{folder_of_this_script}/video_sorter.pid"
+  exit if File.exist?(pidfile)
+  File.write(pidfile, $$)
 
-top_level_files_and_folders.each do |file_or_folder|
-  next if was_processed?(file_or_folder)
+  # TODOs:
+  # - add support for rar'd/zip'd files
+  # - add support for copying subtitles (nested within folder for movie)
 
-  # TODO: unrar if .rar (and make note of this for copy/move decision later)
+  top_level_files_and_folders = Dir[ORIGIN]
 
-  files_to_process = Set[]
-  if File.file?(file_or_folder)
-    file = file_or_folder
+  top_level_files_and_folders.each do |file_or_folder|
+    next if was_processed?(file_or_folder)
 
-    files_to_process << file if is_video_file?(file)
-  else # is a folder
-    folder = file_or_folder
+    # TODO: unrar if .rar (and make note of this for copy/move decision later)
 
-    VIDEO_FILE_EXTENSIONS.each do |video_file_extension|
-      video_files = Dir["#{folder}/**/*#{video_file_extension}"]
-      video_files.each do |video_file|
-        files_to_process << video_file
+    files_to_process = Set[]
+    if File.file?(file_or_folder)
+      file = file_or_folder
+
+      files_to_process << file if is_video_file?(file)
+    else # is a folder
+      folder = file_or_folder
+
+      VIDEO_FILE_EXTENSIONS.each do |video_file_extension|
+        video_files = Dir["#{folder}/**/*#{video_file_extension}"]
+        video_files.each do |video_file|
+          files_to_process << video_file
+        end
       end
     end
-  end
 
-  files_to_process.each do |file_to_process|
-    filename = file_to_process.split("/").last
-    filename =~ /.*[S](\d\d)[E]\d\d\..*/i
-    season   = $1
+    files_to_process.each do |file_to_process|
+      filename = file_to_process.split("/").last
+      filename =~ /.*[S](\d\d)[E]\d\d\..*/i
+      season   = $1
 
-    if !season.nil? # TV show
-      filename   =~ /(.*)\.[S]\d\d[E]\d\d\..*/i
-      show_title = $1
+      if !season.nil? # TV show
+        filename   =~ /(.*)\.[S]\d\d[E]\d\d\..*/i
+        show_title = $1
 
-      show_folder = find_or_create_show_folder(show_title)
+        show_folder = find_or_create_show_folder(show_title)
 
-      season_folder = find_or_create_season_folder(show_folder, season)
-      final_destination = "#{season_folder}/"
-    else # Movie
-      final_destination = MOVIE_DESTINATION
+        season_folder = find_or_create_season_folder(show_folder, season)
+        final_destination = "#{season_folder}/"
+      else # Movie
+        final_destination = MOVIE_DESTINATION
+      end
+
+      # TODO: (or move if extracted)
+      copy_file_from_origin_to_destination(file_to_process, final_destination)
+
+      label_as_processed(file_or_folder)
     end
-
-    # TODO: (or move if extracted)
-    copy_file_from_origin_to_destination(file_to_process, final_destination)
-
-    label_as_processed(file_or_folder)
   end
+rescue => error
+  timestamp = Time.now.strftime("%F %T")
+  puts "[#{timestamp}] Error encountered: #{error}"
 end
+
+FileUtils.rm_f(pidfile)
