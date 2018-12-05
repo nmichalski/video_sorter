@@ -1,6 +1,9 @@
 require 'set'
 require 'fileutils'
 
+$stdout.sync = true
+$stderr.sync = true
+
 # mdls uses a different mapping for reading the color
 COLOR_NAME_BY_ID={
   "0" => "Blank",
