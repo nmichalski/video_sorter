@@ -30,7 +30,8 @@ COLOR_ID_BY_NAME={
 
 # --- Parameters ---
 
-ORIGIN="/Users/nick/Downloads/Unsorted_Downloads/*"
+#ORIGIN="/Users/nick/Downloads/Unsorted_Downloads/*"
+ORIGIN="/Volumes/Fast/uTorrent/completed_downloads/*"
 TV_DESTINATION="/Volumes/Nicks/Media/TV\ Shows/"
 MOVIE_DESTINATION="/Volumes/Nicks/Media/New\ Movies/"
 VIDEO_FILE_EXTENSIONS=[".mkv", ".mp4", ".avi"]
@@ -48,6 +49,10 @@ def is_video_file?(file_path)
   VIDEO_FILE_EXTENSIONS.any? do |video_file_extension|
     file_path.end_with?(video_file_extension)
   end
+end
+
+def escape_glob(s)
+  s.gsub(/[\\\{\}\[\]\*\?]/) { |x| "\\"+x }
 end
 
 def find_or_create_show_folder(show_title)
@@ -115,7 +120,7 @@ begin
       folder = file_or_folder
 
       VIDEO_FILE_EXTENSIONS.each do |video_file_extension|
-        video_files = Dir["#{folder}/**/*#{video_file_extension}"]
+        video_files = Dir["#{escape_glob(folder)}/**/*#{video_file_extension}"]
         video_files.each do |video_file|
           files_to_process << video_file
         end
