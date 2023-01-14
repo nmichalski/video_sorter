@@ -15,6 +15,11 @@ VIDEO_FILE_EXTENSIONS=[".mkv", ".mp4", ".avi", ".m4v"]
 
 # --- Methods ---
 
+def log(string)
+  timestamp = Time.now.strftime("%F %T")
+  puts "[#{timestamp}] #{string}"
+end
+
 def was_processed?(path)
   path_array = path.split("/")
   path_array[-1] = ".#{path_array[-1]}"
@@ -62,21 +67,19 @@ def find_or_create_season_folder(show_folder, season)
 end
 
 def copy_file_from_origin_to_destination(origin, destination)
-  timestamp = Time.now.strftime("%F %T")
-  puts "[#{timestamp}] ----COPYING----"
-  puts "[#{timestamp}]   FROM: #{origin}"
-  puts "[#{timestamp}]   TO: #{destination}"
+  log("----COPYING----")
+  log("  FROM: #{origin}")
+  log("  TO: #{destination}")
 
   FileUtils.cp(origin, destination)
   `notify-send --icon=/home/nick/Pictures/video_icon.jpg "Video Sorter" "Copied (#{origin.split('/')[-1]}) to (#{destination.split('/')[-1]})"`
 end
 
 def label_as_processed(path)
-  timestamp = Time.now.strftime("%F %T")
   path_array = path.split("/")
   path_array[-1] = ".#{path_array[-1]}"
   dot_file_path = path_array.join("/")
-  puts "[#{timestamp}] adding dot file: #{path_array[-1]}"
+  log("adding dot file: #{path_array[-1]}")
 
   FileUtils.touch(dot_file_path)
 end
@@ -85,9 +88,15 @@ end
 # --- Script ---
 
 begin
+  delete_pidfile_on_exit = true
+
   folder_of_this_script = File.expand_path(File.dirname(__FILE__))
   pidfile = "#{folder_of_this_script}/video_sorter.pid"
-  exit if File.exist?(pidfile)
+  if File.exist?(pidfile)
+    delete_pidfile_on_exit = false
+    log("QUITTING: VideoSorter instance already running; exiting now!")
+    exit(0)
+  end
   File.write(pidfile, $$)
 
   # TODOs:
@@ -117,10 +126,9 @@ begin
     end
 
     next if files_to_process.empty?
-    timestamp = Time.now.strftime("%F %T")
-    puts "[#{timestamp}] files to process:"
+    log("files to process:")
     files_to_process.each do |f|
-      puts "[#{timestamp}] - #{f}"
+      log("- #{f}")
     end
 
     files_to_process.each do |file_to_process|
@@ -147,8 +155,10 @@ begin
     end
   end
 rescue => error
-  timestamp = Time.now.strftime("%F %T")
-  puts "[#{timestamp}] Error encountered: #{error}"
+  log("Error encountered: #{error}")
 ensure
-  FileUtils.rm_f(pidfile)
+  if delete_pidfile_on_exit
+    log("QUITTING: deleting pid file")
+    FileUtils.rm_f(pidfile)
+  end
 end
