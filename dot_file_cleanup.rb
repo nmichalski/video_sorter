@@ -10,12 +10,25 @@ $stderr.sync = true
 ORIGIN="/media/Fast/uTorrent/completed_downloads/.*"
 
 
+# --- Methods ---
+
+def log(string)
+  timestamp = Time.now.strftime("%F %T")
+  puts "[#{timestamp}] #{string}"
+end
+
 # --- Script ---
 
 begin
+  delete_pidfile_on_exit = true
+
   folder_of_this_script = File.expand_path(File.dirname(__FILE__))
   pidfile = "#{folder_of_this_script}/dot_file_cleanup.pid"
-  exit if File.exist?(pidfile)
+  if File.exist?(pidfile)
+    delete_pidfile_on_exit = false
+    log("QUITTING: DotFileCleanup instance already running; exiting now!")
+    exit(0)
+  end
   File.write(pidfile, $$)
 
   dot_files = Dir[ORIGIN]
@@ -33,14 +46,15 @@ begin
     source_file_or_folder_exists = File.directory?(path_to_source_file_or_folder) || File.file?(path_to_source_file_or_folder)
 
     if !source_file_or_folder_exists
-      timestamp = Time.now.strftime("%F %T")
-      puts "[#{timestamp}] deleting: #{dot_file_path}"
+      log("deleting: #{dot_file_path}")
       FileUtils.rm_f(dot_file_path)
     end
   end
 rescue => error
-  timestamp = Time.now.strftime("%F %T")
-  puts "[#{timestamp}] Error encountered: #{error}"
+  log("Error encountered: #{error}")
 ensure
-  FileUtils.rm_f(pidfile)
+  if delete_pidfile_on_exit
+    log("QUITTING: deleting pid file")
+    FileUtils.rm_f(pidfile)
+  end
 end
