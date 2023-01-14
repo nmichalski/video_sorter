@@ -125,11 +125,11 @@ begin
 
     files_to_process.each do |file_to_process|
       filename = file_to_process.split("/").last
-      filename =~ /.*[S](\d\d)[E]\d\d.*/i
+      filename =~ /.*[S](\d\d)\s*[E]\d\d.*/i
       season   = $1
 
       if !season.nil? # TV show
-        filename   =~ /(.*)[\.\s][S]\d\d[E]\d\d.*/i
+        filename   =~ /(.*)[\.\s][S]\d\d\s*[E]\d\d.*/i
         show_title = $1
 
         show_folder = find_or_create_show_folder(show_title)
