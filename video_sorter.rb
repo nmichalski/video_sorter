@@ -4,51 +4,33 @@ require 'fileutils'
 $stdout.sync = true
 $stderr.sync = true
 
-# mdls uses a different mapping for reading the color
-COLOR_NAME_BY_ID={
-  "0" => "Blank",
-  "1" => "Gray",
-  "2" => "Green",
-  "3" => "Purple",
-  "4" => "Blue",
-  "5" => "Yellow",
-  "6" => "Red",
-  "7" => "Orange",
-}
-# The osascript uses a different mapping for setting the color
-COLOR_ID_BY_NAME={
-  "Blank"  => "0",
-  "Orange" => "1",
-  "Red"    => "2",
-  "Yellow" => "3",
-  "Blue"   => "4",
-  "Purple" => "5",
-  "Green"  => "6",
-  "Gray"   => "7",
-}
-
 
 # --- Parameters ---
 
-#ORIGIN="/Users/nick/Downloads/Unsorted_Downloads/*"
-ORIGIN="/Volumes/Fast/uTorrent/completed_downloads/*"
-TV_DESTINATION="/Volumes/Nicks/Media/TV\ Shows/"
-MOVIE_DESTINATION="/Volumes/Nicks/Media/New\ Movies/"
-VIDEO_FILE_EXTENSIONS=[".mkv", ".mp4", ".avi"]
+ORIGIN="/media/Fast/uTorrent/completed_downloads/*"
+TV_DESTINATION="/media/NAS/Media/TV\ Shows/"
+MOVIE_DESTINATION="/media/NAS/Media/New\ Movies/"
+VIDEO_FILE_EXTENSIONS=[".mkv", ".mp4", ".avi", ".m4v"]
 
 
 # --- Methods ---
 
 def was_processed?(path)
-  color_id   = `mdls -name kMDItemFSLabel -raw "#{path}"`
-  color_name = COLOR_NAME_BY_ID[color_id]
-  color_name != "Blank"
+  path_array = path.split("/")
+  path_array[-1] = ".#{path_array[-1]}"
+  dot_file_path = path_array.join("/")
+
+  File.file?(dot_file_path)
 end
 
 def is_video_file?(file_path)
   VIDEO_FILE_EXTENSIONS.any? do |video_file_extension|
     file_path.end_with?(video_file_extension)
   end
+end
+
+def is_sample?(file_path)
+  File.size(file_path) < (100 * 1024 * 1024) # 100 MB
 end
 
 def escape_glob(s)
@@ -63,6 +45,7 @@ def find_or_create_show_folder(show_title)
     existing_show_folder = "#{TV_DESTINATION}#{show_title}"
     FileUtils.mkdir(existing_show_folder)
   end
+
   existing_show_folder
 end
 
@@ -74,21 +57,28 @@ def find_or_create_season_folder(show_folder, season)
     existing_season_folder = "#{show_folder}/Season #{season}"
     FileUtils.mkdir(existing_season_folder)
   end
+
   existing_season_folder
 end
 
 def copy_file_from_origin_to_destination(origin, destination)
   timestamp = Time.now.strftime("%F %T")
-  puts "[#{timestamp}] copying: #{origin} --> #{destination}"
+  puts "[#{timestamp}] ----COPYING----"
+  puts "[#{timestamp}]   FROM: #{origin}"
+  puts "[#{timestamp}]   TO: #{destination}"
+
   FileUtils.cp(origin, destination)
+  `notify-send --icon=/home/nick/Pictures/video_icon.jpg "Video Sorter" "Copied (#{origin.split('/')[-1]}) to (#{destination.split('/')[-1]})"`
 end
 
 def label_as_processed(path)
   timestamp = Time.now.strftime("%F %T")
-  puts "[#{timestamp}] labeling Red: #{path}"
+  path_array = path.split("/")
+  path_array[-1] = ".#{path_array[-1]}"
+  dot_file_path = path_array.join("/")
+  puts "[#{timestamp}] adding dot file: #{path_array[-1]}"
 
-  folder_of_this_script = File.expand_path(File.dirname(__FILE__))
-  `"#{folder_of_this_script}/change_file_label.sh" #{COLOR_ID_BY_NAME["Red"]} "#{path}"`
+  FileUtils.touch(dot_file_path)
 end
 
 
@@ -102,6 +92,7 @@ begin
 
   # TODOs:
   # - add support for rar'd/zip'd files
+  #   - deferred since qbittorrent now unrar's after download completes
   # - add support for copying subtitles (nested within folder for movie)
 
   top_level_files_and_folders = Dir[ORIGIN]
@@ -109,31 +100,36 @@ begin
   top_level_files_and_folders.each do |file_or_folder|
     next if was_processed?(file_or_folder)
 
-    # TODO: unrar if .rar (and make note of this for copy/move decision later)
-
     files_to_process = Set[]
     if File.file?(file_or_folder)
       file = file_or_folder
 
-      files_to_process << file if is_video_file?(file)
+      files_to_process << file if is_video_file?(file) && !is_sample?(file)
     else # is a folder
       folder = file_or_folder
 
       VIDEO_FILE_EXTENSIONS.each do |video_file_extension|
         video_files = Dir["#{escape_glob(folder)}/**/*#{video_file_extension}"]
         video_files.each do |video_file|
-          files_to_process << video_file
+          files_to_process << video_file unless is_sample?(video_file)
         end
       end
     end
 
+    next if files_to_process.empty?
+    timestamp = Time.now.strftime("%F %T")
+    puts "[#{timestamp}] files to process:"
+    files_to_process.each do |f|
+      puts "[#{timestamp}] - #{f}"
+    end
+
     files_to_process.each do |file_to_process|
       filename = file_to_process.split("/").last
-      filename =~ /.*[S](\d\d)[E]\d\d\..*/i
+      filename =~ /.*[S](\d\d)[E]\d\d.*/i
       season   = $1
 
       if !season.nil? # TV show
-        filename   =~ /(.*)\.[S]\d\d[E]\d\d\..*/i
+        filename   =~ /(.*)[\.\s][S]\d\d[E]\d\d.*/i
         show_title = $1
 
         show_folder = find_or_create_show_folder(show_title)
@@ -153,6 +149,6 @@ begin
 rescue => error
   timestamp = Time.now.strftime("%F %T")
   puts "[#{timestamp}] Error encountered: #{error}"
+ensure
+  FileUtils.rm_f(pidfile)
 end
-
-FileUtils.rm_f(pidfile)
