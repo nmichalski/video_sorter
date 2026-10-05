@@ -1,3 +1,5 @@
+# DEFUNCT: superseded by dot_file_cleanup.sh, which is what cron runs. Kept for reference only.
+
 require 'set'
 require 'fileutils'
 
@@ -7,7 +9,7 @@ $stderr.sync = true
 
 # --- Parameters ---
 
-ORIGIN="/media/Fast/uTorrent/completed_downloads/.*"
+ORIGIN="/Users/nick/Torrent/completed_downloads/.*"
 
 
 # --- Methods ---

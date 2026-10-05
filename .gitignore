@@ -4,3 +4,7 @@
 *.swn
 *.swm
 .byebug_history
+
+# Local secrets and runtime files
+config.local.sh
+*.pid

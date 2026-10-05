@@ -1,0 +1,3 @@
+# Copy to config.local.sh and fill in. config.local.sh is gitignored.
+# Token: see https://support.plex.tv/articles/204059436
+PLEX_TOKEN="your-plex-token-here"
