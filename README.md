@@ -40,5 +40,5 @@ tests/test_video_sorter.sh   # runs the real script against throwaway temp folde
   "Changed" means ctime, which a move updates even though it keeps the file's old mtime.
 - After **every** video in an item is copied, a dot file (`.<name>`) is created next to it in `completed_downloads`;
   that item is never processed again while the dot file exists. If any copy fails, no dot file is
-  made and the next run retries the whole item.
+  made and the next run retries the item, skipping files already on the NAS at the same size.
 - Files with the word "sample" in their path, or under 10MB, are skipped as samples.
