@@ -26,9 +26,19 @@ crontab:
 *  *  *  *  *  /Users/nick/Code/video_sorter/dot_file_cleanup.sh >> /tmp/dot_file_cleanup.log 2>&1
 ```
 
+## Tests
+
+```sh
+tests/test_video_sorter.sh   # runs the real script against throwaway temp folders
+```
+
 ## Notes
 
 - Video files are **copied**, not moved, so the torrent can keep seeding.
-- After an item is copied, a dot file (`.<name>`) is created next to it in `completed_downloads`;
-  that item is never processed again while the dot file exists.
+- A download is left alone until nothing in it has changed for `SETTLE_SECONDS` (default 5 min),
+  so a multi-file download that qBittorrent is still moving in is never half-copied.
+  "Changed" means ctime, which a move updates even though it keeps the file's old mtime.
+- After **every** video in an item is copied, a dot file (`.<name>`) is created next to it in `completed_downloads`;
+  that item is never processed again while the dot file exists. If any copy fails, no dot file is
+  made and the next run retries the whole item.
 - Files with the word "sample" in their path, or under 10MB, are skipped as samples.
