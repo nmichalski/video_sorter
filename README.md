@@ -35,7 +35,7 @@ tests/test_video_sorter.sh   # runs the real script against throwaway temp folde
 ## Notes
 
 - Video files are **copied**, not moved, so the torrent can keep seeding.
-- A download is left alone until nothing in it has changed for `SETTLE_SECONDS` (default 5 min),
+- A download is left alone until nothing in it has changed for `SETTLE_SECONDS` (default 2 min),
   so a multi-file download that qBittorrent is still moving in is never half-copied.
   "Changed" means ctime, which a move updates even though it keeps the file's old mtime.
 - After **every** video in an item is copied, a dot file (`.<name>`) is created next to it in `completed_downloads`;

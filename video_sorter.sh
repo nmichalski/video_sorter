@@ -14,7 +14,7 @@ MIN_SIZE_BYTES=$((10 * 1024 * 1024))  # 10MB — skip tiny clips (short cartoons
 # A download is only processed once nothing in it has changed for this long.
 # qBittorrent moves finished files into ORIGIN_DIR one by one; a move keeps the
 # old mtime but updates ctime (and the folder's ctime), so ctime is what we watch.
-: "${SETTLE_SECONDS:=300}"
+: "${SETTLE_SECONDS:=120}"
 : "${PIDFILE:=/tmp/video_sorter.pid}"
 
 CONFIG_FILE="${VIDEO_SORTER_CONFIG:-$(cd "$(dirname "$0")" && pwd)/config.local.sh}"
